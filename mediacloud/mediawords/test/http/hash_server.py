@@ -144,9 +144,15 @@ class HashServer(object):
             """Return URL query parameters of a request."""
             uri = furl(self._path)
 
-            # A bit naive because query params might repeat themselves, but it should do for the testing server that
-            # this is supposed to be
-            query_params = dict(uri.query.asdict()['params'])
+            # Return duplicate query parameters as a list
+            query_params = dict()
+            for name, value in uri.query.asdict()['params']:
+                if name in query_params:
+                    if not isinstance(query_params[name], list):
+                        query_params[name] = [query_params[name]]
+                    query_params[name].append(value)
+                else:
+                    query_params[name] = value
 
             return query_params
 

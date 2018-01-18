@@ -28,7 +28,7 @@ def test_http_hash_server():
             'content-type': request.content_type(),
             'params': request.query_params(),
             'cookies': request.cookies(),
-        })
+        }, sort_keys=True)
         return str.encode(r)
 
     # noinspection PyUnusedLocal
@@ -50,7 +50,7 @@ def test_http_hash_server():
         r += json.dumps({
             'name': 'callback_post',
             'post_data': request.content(),
-        })
+        }, sort_keys=True)
         return str.encode(r)
 
     pages = {
@@ -100,15 +100,20 @@ def test_http_hash_server():
     assert str(requests.get('%s/bar/../foo//' % base_url).text) == 'foo'
     assert str(requests.get('%s/bar/../foo///' % base_url).text) == 'foo'
 
-    response_json = requests.get('%s/callback?a=b&c=d' % base_url, cookies={'cookie_name': 'cookie_value'}).json()
+    response_json = requests.get('%s/callback?a=b&c=d&duplicate=1&duplicate=2' % base_url,
+                                 cookies={'cookie_name': 'cookie_value'}).json()
     assert response_json == {
         'name': 'callback',
         'method': 'GET',
-        'url': 'http://localhost:%d/callback?a=b&c=d' % port,
+        'url': 'http://localhost:%d/callback?a=b&c=d&duplicate=1&duplicate=2' % port,
         'content-type': None,
         'params': {
             'a': 'b',
             'c': 'd',
+            'duplicate': [
+                '1',
+                '2',
+            ],
         },
         'cookies': {
             'cookie_name': 'cookie_value',
