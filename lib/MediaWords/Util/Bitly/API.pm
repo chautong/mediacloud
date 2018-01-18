@@ -26,8 +26,8 @@ use DateTime;
 use DateTime::Duration;
 use Readonly;
 
-# API endpoint
-Readonly my $BITLY_API_ENDPOINT => 'https://api-ssl.bitly.com/';
+# Default API endpoint
+Readonly my $BITLY_DEFAULT_API_ENDPOINT => 'https://api-ssl.bitly.com/';
 
 # Error message printed when Bit.ly rate limit is exceeded; used for naive
 # exception handling, see error_is_rate_limit_exceeded()
@@ -71,7 +71,24 @@ my $_bitly_timeout = lazy
     return $timeout;
 };
 
-# From $start_timestamp and $end_timestamp parameters, return API parameters "unit_reference_ts" and "units"
+sub new($;$)
+{
+    my ( $class, $bitly_api_endpoint ) = @_;
+
+    my $self = {};
+    bless $self, $class;
+
+    unless ( $bitly_api_endpoint )
+    {
+        $bitly_api_endpoint = $BITLY_DEFAULT_API_ENDPOINT;
+    }
+
+    $self->{ _bitly_api_endpoint } = $bitly_api_endpoint;
+
+    return $self;
+}
+
+# (static) From $start_timestamp and $end_timestamp parameters, return API parameters "unit_reference_ts" and "units"
 # die()s on error
 sub _unit_reference_ts_and_units_from_start_end_timestamps($$$)
 {
@@ -146,9 +163,9 @@ sub _unit_reference_ts_and_units_from_start_end_timestamps($$$)
 }
 
 # Sends a request to Bit.ly API, returns a 'data' key hashref with results; die()s on error
-sub _request($$)
+sub _request($$$)
 {
-    my ( $path, $params ) = @_;
+    my ( $self, $path, $params ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -175,7 +192,7 @@ sub _request($$)
     }
     $params->{ access_token } = $_bitly_access_token;
 
-    my $uri = URI->new( $BITLY_API_ENDPOINT );
+    my $uri = URI->new( $self->{ _bitly_api_endpoint } );
     $uri->path( $path );
     foreach my $params_key ( keys %{ $params } )
     {
@@ -278,9 +295,9 @@ sub _request($$)
 #     };
 #
 # die()s on error
-sub bitly_info($)
+sub bitly_info($$)
 {
-    my $bitly_ids = shift;
+    my ( $self, $bitly_ids ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -300,7 +317,7 @@ sub bitly_info($)
         die "Bit.ly IDs arrayref is empty.";
     }
 
-    my $result = _request( '/v3/info', { hash => $bitly_ids, expand_user => 'false' } );
+    my $result = $self->_request( '/v3/info', { hash => $bitly_ids, expand_user => 'false' } );
 
     # Sanity check
     my @expected_keys = qw/ info /;
@@ -360,9 +377,9 @@ sub bitly_info($)
 #     };
 #
 # die()s on error
-sub bitly_info_hashref($)
+sub bitly_info_hashref($$)
 {
-    my $bitly_ids = shift;
+    my ( $self, $bitly_ids ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -382,7 +399,7 @@ sub bitly_info_hashref($)
         die "Bit.ly IDs arrayref is empty.";
     }
 
-    my $result = bitly_info( $bitly_ids );
+    my $result = $self->bitly_info( $bitly_ids );
 
     my %bitly_info;
     foreach my $info ( @{ $result->{ info } } )
@@ -434,9 +451,9 @@ sub bitly_info_hashref($)
 #     };
 #
 # die()s on error
-sub bitly_link_lookup($)
+sub bitly_link_lookup($$)
 {
-    my $urls = shift;
+    my ( $self, $urls ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -452,7 +469,7 @@ sub bitly_link_lookup($)
         die "URLs is not an arrayref.";
     }
 
-    my $result = _request( '/v3/link/lookup', { url => $urls } );
+    my $result = $self->_request( '/v3/link/lookup', { url => $urls } );
 
     # Sanity check
     my @expected_keys = qw/ link_lookup /;
@@ -507,9 +524,9 @@ sub bitly_link_lookup($)
 #     };
 #
 # die()s on error
-sub bitly_link_lookup_hashref($)
+sub bitly_link_lookup_hashref($$)
 {
-    my $urls = shift;
+    my ( $self, $urls ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -526,7 +543,7 @@ sub bitly_link_lookup_hashref($)
         die "No URLs.";
     }
 
-    my $result = bitly_link_lookup( $urls );
+    my $result = $self->bitly_link_lookup( $urls );
 
     my %bitly_link_lookup;
     foreach my $link_lookup ( @{ $result->{ link_lookup } } )
@@ -590,9 +607,9 @@ sub bitly_link_lookup_hashref($)
 #     };
 #
 # die()s on error
-sub bitly_link_lookup_hashref_all_variants($$)
+sub bitly_link_lookup_hashref_all_variants($$$)
 {
-    my ( $db, $url ) = @_;
+    my ( $self, $db, $url ) = @_;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -605,7 +622,7 @@ sub bitly_link_lookup_hashref_all_variants($$)
         die "No URLs returned for URL $url";
     }
 
-    return bitly_link_lookup_hashref( \@urls );
+    return $self->bitly_link_lookup_hashref( \@urls );
 }
 
 # Query for number of link clicks based on Bit.ly URL
@@ -647,9 +664,9 @@ sub bitly_link_lookup_hashref_all_variants($$)
 #     };
 #
 # die()s on error
-sub bitly_link_clicks($;$$)
+sub bitly_link_clicks($$;$$)
 {
-    my ( $bitly_id, $start_timestamp, $end_timestamp ) = @_;
+    my ( $self, $bitly_id, $start_timestamp, $end_timestamp ) = @_;
 
     Readonly my $MAX_BITLY_LIMIT => 1000;    # in "/v3/link/clicks" case
 
@@ -666,7 +683,7 @@ sub bitly_link_clicks($;$$)
     my ( $unit_reference_ts, $units ) =
       _unit_reference_ts_and_units_from_start_end_timestamps( $start_timestamp, $end_timestamp, $MAX_BITLY_LIMIT );
 
-    my $result = _request(
+    my $result = $self->_request(
         '/v3/link/clicks',
         {
             link     => "http://bit.ly/$bitly_id",
@@ -754,9 +771,9 @@ sub bitly_link_clicks($;$$)
 #    };
 #
 # die()s on error
-sub fetch_stats_for_url($$$$)
+sub fetch_stats_for_url($$$$$)
 {
-    my ( $db, $url, $start_timestamp, $end_timestamp ) = @_;
+    my ( $self, $db, $url, $start_timestamp, $end_timestamp ) = @_;
 
     unless ( $url )
     {
@@ -772,7 +789,7 @@ sub fetch_stats_for_url($$$$)
     my $string_end_date   = MediaWords::Util::DateTime::gmt_date_string_from_timestamp( $end_timestamp );
 
     my $link_lookup;
-    eval { $link_lookup = bitly_link_lookup_hashref_all_variants( $db, $url ); };
+    eval { $link_lookup = $self->bitly_link_lookup_hashref_all_variants( $db, $url ); };
     if ( $@ or ( !$link_lookup ) )
     {
         die "Unable to lookup URL $url: $@";
@@ -787,7 +804,7 @@ sub fetch_stats_for_url($$$$)
     INFO "Fetching info for Bit.ly IDs " . join( ', ', @{ $bitly_ids } ) . "...";
     if ( scalar( @{ $bitly_ids } ) )
     {
-        eval { $bitly_info = bitly_info_hashref( $bitly_ids ); };
+        eval { $bitly_info = $self->bitly_info_hashref( $bitly_ids ); };
         if ( $@ or ( !$bitly_info ) )
         {
             die "Unable to fetch Bit.ly info for Bit.ly IDs " . join( ', ', @{ $bitly_ids } ) . ": $@";
@@ -835,7 +852,7 @@ sub fetch_stats_for_url($$$$)
         $link_stats->{ 'data' }->{ $bitly_id }->{ 'clicks' } = [
 
             # array because one might want to make multiple requests with various dates
-            bitly_link_clicks( $bitly_id, $start_timestamp, $end_timestamp )
+            $self->bitly_link_clicks( $bitly_id, $start_timestamp, $end_timestamp )
         ];
     }
 
@@ -857,7 +874,7 @@ sub fetch_stats_for_url($$$$)
     return $link_stats;
 }
 
-# Given the error message ($@ after unsuccessful eval{}), determine whether the
+# (static) Given the error message ($@ after unsuccessful eval{}), determine whether the
 # error is because of the exceeded Bit.ly rate limit
 sub error_is_rate_limit_exceeded($)
 {

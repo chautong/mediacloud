@@ -267,9 +267,8 @@ sub fetch_bitly_clicks : Local
         }
         elsif ( $stories_url )
         {
-
-            $bitly_clicks =
-              MediaWords::Util::Bitly::API::fetch_stats_for_url( $db, $stories_url, $start_timestamp, $end_timestamp );
+            my $bitly = MediaWords::Util::Bitly::API->new();
+            $bitly_clicks = $bitly->fetch_stats_for_url( $db, $stories_url, $start_timestamp, $end_timestamp );
 
             ( $agg_stories_id, $agg_stories_url ) = ( 0, $stories_url );
 

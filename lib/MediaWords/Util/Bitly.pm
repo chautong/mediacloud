@@ -210,7 +210,8 @@ sub fetch_stats_for_story($$$$)
         die "URL '$stories_url' is not a HTTP(S) URL for story $stories_id";
     }
 
-    return MediaWords::Util::Bitly::API::fetch_stats_for_url( $db, $stories_url, $start_timestamp, $end_timestamp );
+    my $bitly = MediaWords::Util::Bitly::API->new();
+    return $bitly->fetch_stats_for_url( $db, $stories_url, $start_timestamp, $end_timestamp );
 }
 
 # Merge two Bit.ly statistics hashrefs into one
