@@ -1,6 +1,9 @@
 use strict;
 use warnings;
 
+use Modern::Perl "2015";
+use MediaWords::CommonLibs;
+
 use utf8;
 use Test::More;
 use Test::Differences;
@@ -10,6 +13,29 @@ use Data::Dumper;
 
 use MediaWords::Util::Bitly;
 
+sub test_bitly_processing_is_enabled()
+{
+    my $config     = MediaWords::Util::Config::get_config();
+    my $new_config = python_deep_copy( $config );
+    $new_config->{ bitly } = {};
+    my $old_bitly_enabled = $config->{ bitly }->{ enabled };
+
+    $new_config->{ bitly }->{ enabled } = 1;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( MediaWords::Util::Bitly::bitly_processing_is_enabled() );
+
+    $new_config->{ bitly }->{ enabled } = 0;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( !MediaWords::Util::Bitly::bitly_processing_is_enabled() );
+
+    $new_config->{ bitly }->{ enabled } = undef;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( !MediaWords::Util::Bitly::bitly_processing_is_enabled() );
+
+    # Reset configuration
+    $new_config->{ bitly }->{ enabled } = $old_bitly_enabled;
+    MediaWords::Util::Config::set_config( $new_config );
+}
 
 sub test_merge_story_stats()
 {
@@ -128,13 +154,14 @@ sub test_aggregate_story_stats()
 
 sub main()
 {
-    plan tests => 5;
+    plan tests => 8;
 
     my $builder = Test::More->builder;
     binmode $builder->output,         ":utf8";
     binmode $builder->failure_output, ":utf8";
     binmode $builder->todo_output,    ":utf8";
 
+    test_bitly_processing_is_enabled();
     test_merge_story_stats();
     test_aggregate_story_stats();
 }
