@@ -53,6 +53,11 @@ env:
         - secure: "U4UiJwK5fsezvZOGsgW0v6hPiqXGor0Er6DAtlb7AE/qBx5j4goHYi4SsjMGX21pzFxlo+MmT6oGFj1rDf4uoF6TXW5UZn2fLsCYXrHRaQ7hJXog+tSw7CpAoR6mlXfxti6I83ln53GIgqhpzoZXscdS21r0q/vv8aFRT7dD8Ec="
         - secure: "Fw42BMs0PDUn3ouHbeDwps28BolRQuLcHtvax25sbFd6novSIpns/01c31pZy8LkOYSb0fDqnrx3zTYh468CctJks4cDRPTn8xjPMGP5mnrOxdQbVHLFD5nqo/bpOzvdUmBWj8t7r96C8x6PNqxfsQqeinzHi1e2wMbDyxGdFHQ="
 
+        # Bit.ly API test API access token
+        #
+        # * MC_BITLY_TEST_ACCESS_TOKEN
+        - secure: "HucDtxP3Y46KWh+LGjONw9PjnU0cCJNaXRoJm2ARcY/Fg9EGc9O3hyMvSLYeyD2KhsRrnhQp9soj+qRxYhmPlo66UNhrYp6ehIYJp+tERdv6lL69DR3OTB246S49kCPIG83/bhWYM26TT2BPXYtrMf0XCCO++RrTy+2j7Rxdoeg="
+
         # Superglue test feed URL:
         #
         # * MC_SUPERGLUE_TEST_URL

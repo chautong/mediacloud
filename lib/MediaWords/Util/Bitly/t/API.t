@@ -5,11 +5,16 @@ use Modern::Perl "2015";
 use MediaWords::CommonLibs;
 
 use Test::NoWarnings;
-use Test::More tests => 25;
+use Test::More;
 
 use MediaWords::Test::DB;
 use MediaWords::Test::HTTP::HashServer;
 use MediaWords::Util::Network;
+
+use Readonly;
+
+# Environment variable which might contain Bit.ly access token to be used for testing live API
+Readonly my $ENV_BITLY_TEST_ACCESS_TOKEN => 'MC_BITLY_TEST_ACCESS_TOKEN';
 
 sub _bitly_info_test_callback($)
 {
@@ -314,29 +319,59 @@ sub main()
     my $config     = MediaWords::Util::Config::get_config();
     my $new_config = python_deep_copy( $config );
 
+    my $mock_port         = MediaWords::Util::Network::random_unused_port();
+    my $mock_api_endpoint = "http://localhost:$mock_port/";
+    my $mock_pages        = _mock_api_endpoint_pages();
+    my $mock_hs           = MediaWords::Test::HTTP::HashServer->new( $mock_port, $mock_pages );
+    $mock_hs->start();
+
+    my $test_backends = [];
+
+    # Mock API endpoint
+    push(
+        @{ $test_backends },
+        {
+            'api_endpoint' => $mock_api_endpoint,
+            'access_token' => '01234567890abcdef',
+        }
+    );
+
+    if ( $ENV{ $ENV_BITLY_TEST_ACCESS_TOKEN . '' } )
+    {
+        # Live API endpoint
+        push(
+            @{ $test_backends },
+            {
+                'api_endpoint' => undef,
+                'access_token' => $ENV{ $ENV_BITLY_TEST_ACCESS_TOKEN . '' },
+            }
+        );
+
+        plan tests => 49;
+
+    }
+    else
+    {
+        plan tests => 25;
+
+    }
+
     # Enable Bit.ly for this test only
     $new_config->{ bitly } = {};
     my $old_bitly_enabled      = $config->{ bitly }->{ enabled };
     my $old_bitly_access_token = $config->{ bitly }->{ access_token };
-    $new_config->{ bitly }->{ enabled }      = 1;
-    $new_config->{ bitly }->{ access_token } = '01234567890abcdef';
-    MediaWords::Util::Config::set_config( $new_config );
+    $new_config->{ bitly }->{ enabled } = 1;
 
-    # Run tests
-    for my $subroutine ( @{ $test_subroutines } )
+    for my $backend ( @{ $test_backends } )
     {
 
-        my $port         = MediaWords::Util::Network::random_unused_port();
-        my $api_endpoint = "http://localhost:$port/";
-        my $pages        = _mock_api_endpoint_pages();
+        $new_config->{ bitly }->{ access_token } = $backend->{ 'access_token' };
+        MediaWords::Util::Config::set_config( $new_config );
 
-        my $hs = MediaWords::Test::HTTP::HashServer->new( $port, $pages );
-
-        $hs->start();
-
-        $subroutine->( $api_endpoint );
-
-        $hs->stop();
+        for my $subroutine ( @{ $test_subroutines } )
+        {
+            $subroutine->( $backend->{ 'api_endpoint' } );
+        }
     }
 
     # Reset configuration
