@@ -21,7 +21,6 @@ use MediaWords::Util::DateTime;
 use URI;
 use URI::QueryParam;
 use Scalar::Util qw/looks_like_number/;
-use Scalar::Defer;
 use DateTime;
 use DateTime::Duration;
 use Readonly;
@@ -32,44 +31,6 @@ Readonly my $BITLY_DEFAULT_API_ENDPOINT => 'https://api-ssl.bitly.com/';
 # Error message printed when Bit.ly rate limit is exceeded; used for naive
 # exception handling, see error_is_rate_limit_exceeded()
 Readonly my $BITLY_ERROR_LIMIT_EXCEEDED => 'Bit.ly rate limit exceeded. Please wait for a bit and try again.';
-
-# (Lazy-initialized) Bit.ly access token
-my $_bitly_access_token = lazy
-{
-    unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
-    {
-        fatal_error( "Bit.ly processing is not enabled; why are you accessing this variable?" );
-    }
-
-    my $config = MediaWords::Util::Config::get_config();
-
-    my $access_token = $config->{ bitly }->{ access_token };
-    unless ( $access_token )
-    {
-        die "Unable to determine Bit.ly access token.";
-    }
-
-    return $access_token;
-};
-
-# (Lazy-initialized) Bit.ly timeout
-my $_bitly_timeout = lazy
-{
-    unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
-    {
-        fatal_error( "Bit.ly processing is not enabled; why are you accessing this variable?" );
-    }
-
-    my $config = MediaWords::Util::Config::get_config();
-
-    my $timeout = $config->{ bitly }->{ timeout };
-    unless ( $timeout )
-    {
-        die "Unable to determine Bit.ly timeout.";
-    }
-
-    return $timeout;
-};
 
 sub new($;$)
 {
@@ -83,7 +44,30 @@ sub new($;$)
         $bitly_api_endpoint = $BITLY_DEFAULT_API_ENDPOINT;
     }
 
-    $self->{ _bitly_api_endpoint } = $bitly_api_endpoint;
+    $self->{ _api_endpoint } = $bitly_api_endpoint;
+
+    unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
+    {
+        fatal_error( "Bit.ly processing is not enabled; why are you accessing this variable?" );
+    }
+
+    my $config = MediaWords::Util::Config::get_config();
+
+    my $access_token = $config->{ bitly }->{ access_token } . '';
+    unless ( $access_token )
+    {
+        fatal_error( "Unable to determine Bit.ly access token." );
+    }
+    $self->{ _access_token } = $access_token;
+
+    my $timeout = $config->{ bitly }->{ timeout };
+    unless ( $timeout )
+    {
+        fatal_error( "Unable to determine Bit.ly timeout." );
+    }
+    $self->{ _timeout } = $timeout;
+
+    DEBUG "Initialized Bit.ly helper class with API endpoint: " . $self->{ _api_endpoint };
 
     return $self;
 }
@@ -185,14 +169,9 @@ sub _request($$$)
         die "Parameters argument is not a hashref.";
     }
 
-    # Add access token
-    if ( $params->{ access_token } )
-    {
-        die "Access token is already set; not resetting to the one from configuration";
-    }
-    $params->{ access_token } = $_bitly_access_token;
+    $params->{ access_token } = $self->{ _access_token };
 
-    my $uri = URI->new( $self->{ _bitly_api_endpoint } );
+    my $uri = URI->new( $self->{ _api_endpoint } );
     $uri->path( $path );
     foreach my $params_key ( keys %{ $params } )
     {
@@ -203,7 +182,7 @@ sub _request($$$)
 
     my $ua = MediaWords::Util::Web::UserAgent->new();
     $ua->set_timing( [ 1, 2, 4, 8 ] );
-    $ua->set_timeout( $_bitly_timeout );
+    $ua->set_timeout( $self->{ _timeout } );
     $ua->set_max_size( undef );
 
     my $response = $ua->get( $url );
