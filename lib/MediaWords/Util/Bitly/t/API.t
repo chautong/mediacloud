@@ -10,6 +10,7 @@ use Test::More;
 use MediaWords::Test::DB;
 use MediaWords::Test::HTTP::HashServer;
 use MediaWords::Util::Network;
+use MediaWords::Util::Text;
 
 use Readonly;
 
@@ -117,7 +118,7 @@ sub _bitly_link_lookup_test_callback($)
             @{ $link_lookup },
             {
                 "url"            => $url,
-                "aggregate_link" => "http://bit.ly/ABCDEF",
+                "aggregate_link" => "http://bit.ly/" . MediaWords::Util::Text::random_string( 6 ),
             }
         );
     }
@@ -306,6 +307,52 @@ sub test_bitly_link_clicks($)
 
 }
 
+sub test_fetch_stats_for_url($)
+{
+    my $api_endpoint = shift;
+
+    MediaWords::Test::DB::test_on_test_database(
+        sub {
+            my ( $db ) = @_;
+
+            use Time::Local;
+
+            my $test_url             = 'http://feeds.foxnews.com/~r/foxnews/national/~3/bmilmNKlhLw/';
+            my $test_start_timestamp = timelocal( 0, 0, 0, 1, 6, 2013 );
+            my $test_end_timestamp   = timelocal( 0, 0, 0, 1, 11, 2013 );
+
+            my $bitly = MediaWords::Util::Bitly::API->new( $api_endpoint );
+            my $link_stats = $bitly->fetch_stats_for_url( $db, $test_url, $test_start_timestamp, $test_end_timestamp );
+
+            ok( keys( %{ $link_stats } ) > 0 );
+            ok( $link_stats->{ collection_timestamp } );
+            ok( $link_stats->{ data } );
+            my $data = $link_stats->{ data };
+
+            my $first_entry = $data->{ ( sort keys %{ $data } )[ 0 ] };
+            is( ref( $first_entry ), ref( {} ) );
+            ok( length( $first_entry->{ url } ) );
+            ok( $first_entry->{ info } );
+            ok( defined $first_entry->{ info }->{ hash } );
+            ok( defined $first_entry->{ info }->{ global_hash } );
+            ok( defined $first_entry->{ info }->{ user_hash } );
+            ok( defined $first_entry->{ info }->{ created_at } );
+            ok( $first_entry->{ clicks } );
+
+            my $first_clicks_entry = $first_entry->{ clicks }->[ 0 ];
+            is( $first_clicks_entry->{ unit_reference_ts }, $test_end_timestamp );
+            is( $first_clicks_entry->{ unit },              'day' );
+            is( $first_clicks_entry->{ units }, int( ( $test_end_timestamp - $test_start_timestamp ) / ( 60 * 60 * 24 ) ) );
+            is( $first_clicks_entry->{ tz_offset }, 0 );
+            ok( $first_clicks_entry->{ link_clicks } );
+
+            my $first_link_clicks_entry = $first_clicks_entry->{ link_clicks }->[ 0 ];
+            ok( defined $first_link_clicks_entry->{ clicks } );
+            ok( defined $first_link_clicks_entry->{ dt } );
+        }
+    );
+}
+
 sub main()
 {
     my $test_subroutines = [
@@ -314,6 +361,7 @@ sub main()
         \&test_bitly_link_lookup,            #
         \&test_bitly_link_lookup_hashref,    #
         \&test_bitly_link_clicks,            #
+        \&test_fetch_stats_for_url,          #
     ];
 
     my $config     = MediaWords::Util::Config::get_config();
@@ -347,12 +395,12 @@ sub main()
             }
         );
 
-        plan tests => 49;
+        plan tests => 85;
 
     }
     else
     {
-        plan tests => 25;
+        plan tests => 43;
 
     }
 

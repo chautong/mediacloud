@@ -24,6 +24,7 @@ use Scalar::Util qw/looks_like_number/;
 use DateTime;
 use DateTime::Duration;
 use Readonly;
+use Time::Local;
 
 # Default API endpoint
 Readonly my $BITLY_DEFAULT_API_ENDPOINT => 'https://api-ssl.bitly.com/';
