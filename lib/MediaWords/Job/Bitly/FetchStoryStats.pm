@@ -101,7 +101,7 @@ sub run($;$)
     # DEBUG "Stats: " . Dumper( $stats );
 
     INFO "Storing story stats for story $stories_id...";
-    eval { MediaWords::Util::Bitly::write_story_stats( $db, $stories_id, $stats ); };
+    eval { MediaWords::Util::Bitly::store_story_stats( $db, $stories_id, $stats ); };
     if ( $@ )
     {
         # No point die()ing and continuing with other jobs (something wrong with the storage mechanism)

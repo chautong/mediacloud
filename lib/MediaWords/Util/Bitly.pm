@@ -269,7 +269,7 @@ sub merge_story_stats($$)
     return $stats;
 }
 
-# Write Bit.ly story statistics to key-value store; append to the existing
+# Store Bit.ly story statistics to key-value store; append to the existing
 # stats if needed
 #
 # Params:
@@ -278,7 +278,7 @@ sub merge_story_stats($$)
 # * $stats - hashref with Bit.ly statistics
 #
 # die()s on error
-sub write_story_stats($$$)
+sub store_story_stats($$$)
 {
     my ( $db, $stories_id, $stats ) = @_;
 
