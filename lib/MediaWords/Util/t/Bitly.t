@@ -14,6 +14,7 @@ use Readonly;
 
 use MediaWords::Util::Bitly;
 use MediaWords::Test::DB;
+use MediaWords::Test::Bitly;
 use MediaWords::TM::Mine;
 
 sub test_bitly_processing_is_enabled()
@@ -198,9 +199,59 @@ SQL
     }
 }
 
+sub test_fetch_stats_for_story($)
+{
+    my $db = shift;
+
+    use Time::Local;
+
+    # Input URL and timestamps
+    my $test_url             = 'http://feeds.foxnews.com/~r/foxnews/national/~3/bmilmNKlhLw/';
+    my $test_start_timestamp = timelocal( 0, 0, 0, 1, 6, 2013 );
+    my $test_end_timestamp   = timelocal( 0, 0, 0, 1, 11, 2013 );
+
+    # URL that is to be resolved by all_url_variants()
+    my $expected_resolved_url =
+      'http://www.foxnews.com/us/2013/07/04/crowds-across-america-protest-nsa-in-restore-fourth-movement.html';
+
+    Readonly my $label => 'fetch_stats_for_story';
+
+    my $medium = MediaWords::Test::DB::create_test_medium( $db, $label );
+    my $feed = MediaWords::Test::DB::create_test_feed( $db, 'feed', $medium );
+    my $story = MediaWords::Test::DB::create_test_story( $db, 'story', $feed );
+    $db->update_by_id( 'stories', $story->{ stories_id }, { 'url' => $test_url } );
+
+    my $story_stats = MediaWords::Util::Bitly::fetch_stats_for_story( $db, $story->{ stories_id },
+        $test_start_timestamp, $test_end_timestamp );
+
+    ok( $story_stats->{ data } );
+    my $data = $story_stats->{ data };
+
+    my $found_resolved_url = 0;
+    for my $bitly_id ( keys %{ $data } )
+    {
+        my $entry = $data->{ $bitly_id };
+        my $url   = $entry->{ url };
+        if ( $url eq $expected_resolved_url )
+        {
+            $found_resolved_url = 1;
+            last;
+        }
+    }
+
+    ok( $found_resolved_url, "Found resolved URL in data: " . Dumper( $story_stats ) );
+}
+
 sub main()
 {
-    plan tests => 10;
+    if ( MediaWords::Test::Bitly::live_backend_test_is_enabled() )
+    {
+        plan tests => 14;
+    }
+    else
+    {
+        plan tests => 12;
+    }
 
     my $builder = Test::More->builder;
     binmode $builder->output,         ":utf8";
@@ -216,6 +267,20 @@ sub main()
             my ( $db ) = @_;
 
             test_num_topic_stories_without_bitly_statistics( $db );
+        }
+    );
+
+    MediaWords::Test::Bitly::test_on_all_backends(
+        sub {
+
+            # Initialize a fresh database for every Bit.ly backend
+            MediaWords::Test::DB::test_on_test_database(
+                sub {
+                    my ( $db ) = @_;
+
+                    test_fetch_stats_for_story( $db );
+                }
+            );
         }
     );
 }
