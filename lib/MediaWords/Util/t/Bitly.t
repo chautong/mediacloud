@@ -10,8 +10,11 @@ use Test::Differences;
 use Test::Deep;
 
 use Data::Dumper;
+use Readonly;
 
 use MediaWords::Util::Bitly;
+use MediaWords::Test::DB;
+use MediaWords::TM::Mine;
 
 sub test_bitly_processing_is_enabled()
 {
@@ -152,9 +155,52 @@ sub test_aggregate_story_stats()
     }
 }
 
+sub test_num_topic_stories_without_bitly_statistics($)
+{
+    my $db = shift;
+
+    Readonly my $test_story_count => 42;
+    Readonly my $label            => 'num_topic_stories_without_bitly_statistics';
+
+    my $topic = MediaWords::Test::DB::create_test_topic( $db, $label );
+
+    my $medium = MediaWords::Test::DB::create_test_medium( $db, $label );
+    my $feed = MediaWords::Test::DB::create_test_feed( $db, $label, $medium );
+
+    my $first_story = undef;
+    for my $i ( 1 .. $test_story_count )
+    {
+        my $story = MediaWords::Test::DB::create_test_story( $db, "$label $i", $feed );
+        MediaWords::TM::Mine::add_to_topic_stories( $db, $topic, $story, 1, 'f', 1 );
+
+        unless ( defined $first_story )
+        {
+            $first_story = $story;
+        }
+    }
+
+    {
+        my $story_count = MediaWords::Util::Bitly::num_topic_stories_without_bitly_statistics( $db, $topic->{ topics_id } );
+        is( $story_count, $test_story_count );
+    }
+
+    $db->query(
+        <<SQL,
+        INSERT INTO bitly_clicks_total (stories_id, click_count)
+        VALUES (?, ?)
+SQL
+        $first_story->{ stories_id }, 123
+    );
+
+    {
+        my $story_count = MediaWords::Util::Bitly::num_topic_stories_without_bitly_statistics( $db, $topic->{ topics_id } );
+        is( $story_count, $test_story_count - 1 );
+    }
+}
+
 sub main()
 {
-    plan tests => 8;
+    plan tests => 10;
 
     my $builder = Test::More->builder;
     binmode $builder->output,         ":utf8";
@@ -164,6 +210,14 @@ sub main()
     test_bitly_processing_is_enabled();
     test_merge_story_stats();
     test_aggregate_story_stats();
+
+    MediaWords::Test::DB::test_on_test_database(
+        sub {
+            my ( $db ) = @_;
+
+            test_num_topic_stories_without_bitly_statistics( $db );
+        }
+    );
 }
 
 main();
