@@ -219,13 +219,13 @@ END
     {
         $c->stash->{ bitly_is_enabled } = 1;
 
-        if ( MediaWords::Util::Bitly::story_stats_are_fetched( $c->dbis, $story->{ stories_id } ) )
+        if ( MediaWords::Util::Bitly::story_stats_are_stored( $c->dbis, $story->{ stories_id } ) )
         {
-            $c->stash->{ bitly_story_stats_are_fetched } = 1;
+            $c->stash->{ bitly_story_stats_are_stored } = 1;
         }
         else
         {
-            $c->stash->{ bitly_story_stats_are_fetched } = 0;
+            $c->stash->{ bitly_story_stats_are_stored } = 0;
         }
     }
     else
@@ -348,7 +348,7 @@ sub bitly_json : Local
         LOGCONFESS "Bit.ly processing is not enabled in the configuration.";
     }
 
-    unless ( MediaWords::Util::Bitly::story_stats_are_fetched( $c->dbis, $stories_id ) )
+    unless ( MediaWords::Util::Bitly::story_stats_are_stored( $c->dbis, $stories_id ) )
     {
         LOGCONFESS "Story's $stories_id Bit.ly stats are not fetched.";
     }

@@ -193,7 +193,7 @@
             <th>
                 Bit.ly JSON:</th>
             <td>
-                [% IF bitly_story_stats_are_fetched %]
+                [% IF bitly_story_stats_are_stored %]
 
                     <iframe src="[% c.uri_for( '/admin/stories/bitly_json/' _ story.stories_id ) | html %]" style="width: 99%; height: 480px; background-color: white"></iframe>
 

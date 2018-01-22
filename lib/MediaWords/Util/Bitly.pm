@@ -157,27 +157,6 @@ sub bitly_processing_is_enabled()
     return $bitly_enabled ? 1 : 0;
 }
 
-# Check if story is processed with Bit.ly (stats are fetched)
-# Return 1 if stats for story are fetched, 0 otherwise, die() on error, exit() on fatal error
-sub story_stats_are_fetched($$)
-{
-    my ( $db, $stories_id ) = @_;
-
-    unless ( bitly_processing_is_enabled() )
-    {
-        die "Bit.ly processing is not enabled.";
-    }
-
-    my $record_exists = undef;
-    eval { $record_exists = ( force $_results_store)->content_exists( $db, $stories_id ); };
-    if ( $@ )
-    {
-        die "Storage died while testing whether or not a Bit.ly record exists for story $stories_id: $@";
-    }
-
-    return $record_exists;
-}
-
 # Fetch story URL statistics from Bit.ly API
 #
 # Params:
@@ -297,7 +276,7 @@ sub store_story_stats($$$)
     }
 
     # Fetch + merge existing stats if any
-    if ( story_stats_are_fetched( $db, $stories_id ) )
+    if ( story_stats_are_stored( $db, $stories_id ) )
     {
         DEBUG "Story's $stories_id stats are already fetched from Bit.ly, merging...";
 
@@ -323,6 +302,27 @@ sub store_story_stats($$$)
     }
 }
 
+# Check if story is processed with Bit.ly (stats are fetched)
+# Return 1 if stats for story are fetched, 0 otherwise, die() on error, exit() on fatal error
+sub story_stats_are_stored($$)
+{
+    my ( $db, $stories_id ) = @_;
+
+    unless ( bitly_processing_is_enabled() )
+    {
+        die "Bit.ly processing is not enabled.";
+    }
+
+    my $record_exists = undef;
+    eval { $record_exists = ( force $_results_store)->content_exists( $db, $stories_id ); };
+    if ( $@ )
+    {
+        die "Storage died while testing whether or not a Bit.ly record exists for story $stories_id: $@";
+    }
+
+    return $record_exists;
+}
+
 # Read Bit.ly story statistics from key-value store
 #
 # Params:
@@ -345,7 +345,7 @@ sub read_story_stats($$)
     }
 
     # Check if something is already stored
-    unless ( story_stats_are_fetched( $db, $stories_id ) )
+    unless ( story_stats_are_stored( $db, $stories_id ) )
     {
         WARN "Story $stories_id is not processed with Bit.ly.";
         return undef;
