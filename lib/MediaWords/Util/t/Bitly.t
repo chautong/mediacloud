@@ -45,7 +45,7 @@ sub test_merge_story_stats()
         my $new_stats = { error => 'An error occurred while fetching new stats', };
         my $expected_stats = $old_stats;
 
-        cmp_deeply( MediaWords::Util::Bitly::merge_story_stats( $old_stats, $new_stats ), $expected_stats );
+        cmp_deeply( MediaWords::Util::Bitly::_merge_story_stats( $old_stats, $new_stats ), $expected_stats );
     }
 
     # Old stats had an error, new stats didn't
@@ -54,7 +54,7 @@ sub test_merge_story_stats()
         my $new_stats = { data => { bitly_id => { foo => 'bar ' }, }, };
         my $expected_stats = $new_stats;
 
-        cmp_deeply( MediaWords::Util::Bitly::merge_story_stats( $old_stats, $new_stats ), $expected_stats );
+        cmp_deeply( MediaWords::Util::Bitly::_merge_story_stats( $old_stats, $new_stats ), $expected_stats );
     }
 
     # Both old and new stats had an error
@@ -63,7 +63,7 @@ sub test_merge_story_stats()
         my $new_stats = { error => 'An error occurred while fetching new stats', };
         my $expected_stats = $new_stats;
 
-        cmp_deeply( MediaWords::Util::Bitly::merge_story_stats( $old_stats, $new_stats ), $expected_stats );
+        cmp_deeply( MediaWords::Util::Bitly::_merge_story_stats( $old_stats, $new_stats ), $expected_stats );
     }
 
     # Merge stats for different days, make sure timestamp gets copied too
@@ -95,7 +95,7 @@ sub test_merge_story_stats()
             collection_timestamp => 2,                                                         #
         };
 
-        cmp_deeply( MediaWords::Util::Bitly::merge_story_stats( $old_stats, $new_stats ), $expected_stats );
+        cmp_deeply( MediaWords::Util::Bitly::_merge_story_stats( $old_stats, $new_stats ), $expected_stats );
     }
 }
 
