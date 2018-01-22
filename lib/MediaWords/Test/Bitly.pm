@@ -244,6 +244,13 @@ sub test_subroutines_on_all_backends($)
     my $config     = MediaWords::Util::Config::get_config();
     my $new_config = python_deep_copy( $config );
 
+    # Enable Bit.ly for this test only
+    $new_config->{ bitly } = {};
+    my $old_bitly_enabled      = $config->{ bitly }->{ enabled };
+    my $old_bitly_api_endpoint = $config->{ bitly }->{ api_endpoint };
+    my $old_bitly_access_token = $config->{ bitly }->{ access_token };
+    $new_config->{ bitly }->{ enabled } = 1;
+
     my $mock_port         = MediaWords::Util::Network::random_unused_port();
     my $mock_api_endpoint = "http://localhost:$mock_port/";
     my $mock_pages        = _mock_api_endpoint_pages();
@@ -267,33 +274,28 @@ sub test_subroutines_on_all_backends($)
         push(
             @{ $test_backends },
             {
-                'api_endpoint' => undef,
+                'api_endpoint' => $config->{ bitly }->{ api_endpoint },        # Will be set to live API's endpoint
                 'access_token' => $ENV{ $ENV_BITLY_TEST_ACCESS_TOKEN . '' },
             }
         );
 
     }
 
-    # Enable Bit.ly for this test only
-    $new_config->{ bitly } = {};
-    my $old_bitly_enabled      = $config->{ bitly }->{ enabled };
-    my $old_bitly_access_token = $config->{ bitly }->{ access_token };
-    $new_config->{ bitly }->{ enabled } = 1;
-
     for my $backend ( @{ $test_backends } )
     {
-
+        $new_config->{ bitly }->{ api_endpoint } = $backend->{ 'api_endpoint' };
         $new_config->{ bitly }->{ access_token } = $backend->{ 'access_token' };
         MediaWords::Util::Config::set_config( $new_config );
 
         for my $subroutine ( @{ $test_subroutines } )
         {
-            $subroutine->( $backend->{ 'api_endpoint' } );
+            $subroutine->();
         }
     }
 
     # Reset configuration
     $new_config->{ bitly }->{ enabled }      = $old_bitly_enabled;
+    $new_config->{ bitly }->{ api_endpoint } = $old_bitly_api_endpoint;
     $new_config->{ bitly }->{ access_token } = $old_bitly_access_token;
     MediaWords::Util::Config::set_config( $new_config );
 }

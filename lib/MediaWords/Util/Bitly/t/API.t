@@ -10,13 +10,11 @@ use Test::More;
 use MediaWords::Test::Bitly;
 use MediaWords::Test::DB;
 
-sub test_bitly_info($)
+sub test_bitly_info()
 {
-    my $api_endpoint = shift;
-
     my $test_hashes = [ '2DfNQPk', 'xrn7zH' ];
 
-    my $bitly = MediaWords::Util::Bitly::API->new( $api_endpoint );
+    my $bitly = MediaWords::Util::Bitly::API->new();
     my $info  = $bitly->bitly_info( $test_hashes );
 
     ok( $info->{ 'info' } );
@@ -25,13 +23,11 @@ sub test_bitly_info($)
     is( $info->{ 'info' }->[ 1 ]->{ 'hash' }, $test_hashes->[ 1 ] );
 }
 
-sub test_bitly_hashref($)
+sub test_bitly_hashref()
 {
-    my $api_endpoint = shift;
-
     my $test_hashes = [ '2DfNQPk', 'xrn7zH' ];
 
-    my $bitly = MediaWords::Util::Bitly::API->new( $api_endpoint );
+    my $bitly = MediaWords::Util::Bitly::API->new();
     my $info  = $bitly->bitly_info_hashref( $test_hashes );
 
     ok( $info->{ $test_hashes->[ 0 ] } );
@@ -42,11 +38,9 @@ sub test_bitly_hashref($)
 
 sub test_bitly_link_lookup()
 {
-    my $api_endpoint = shift;
-
     my $test_urls = [ 'https://civic.mit.edu/', 'https://cyber.harvard.edu/' ];
 
-    my $bitly       = MediaWords::Util::Bitly::API->new( $api_endpoint );
+    my $bitly       = MediaWords::Util::Bitly::API->new();
     my $link_lookup = $bitly->bitly_link_lookup( $test_urls );
 
     ok( $link_lookup->{ 'link_lookup' } );
@@ -57,28 +51,24 @@ sub test_bitly_link_lookup()
     like( $link_lookup->{ 'link_lookup' }->[ 1 ]->{ 'aggregate_link' }, qr|^https?://bit\.ly/[a-zA-Z0-9]+?$| );
 }
 
-sub test_bitly_link_lookup_hashref($)
+sub test_bitly_link_lookup_hashref()
 {
-    my $api_endpoint = shift;
-
     my $test_urls = [ 'https://civic.mit.edu/', 'https://cyber.harvard.edu/' ];
 
-    my $bitly       = MediaWords::Util::Bitly::API->new( $api_endpoint );
+    my $bitly       = MediaWords::Util::Bitly::API->new();
     my $link_lookup = $bitly->bitly_link_lookup_hashref( $test_urls );
 
     like( $link_lookup->{ $test_urls->[ 0 ] }, qr/^[a-zA-Z0-9]+?$/ );
     like( $link_lookup->{ $test_urls->[ 1 ] }, qr/^[a-zA-Z0-9]+?$/ );
 }
 
-sub test_bitly_link_clicks($)
+sub test_bitly_link_clicks()
 {
-    my $api_endpoint = shift;
-
     my $test_bitly_id        = '2DfNQPk';
     my $test_start_timestamp = 1515456000;
     my $test_end_timestamp   = 1516233600;
 
-    my $bitly = MediaWords::Util::Bitly::API->new( $api_endpoint );
+    my $bitly = MediaWords::Util::Bitly::API->new();
     my $link_clicks = $bitly->bitly_link_clicks( $test_bitly_id, $test_start_timestamp, $test_end_timestamp );
 
     ok( $link_clicks->{ 'link_clicks' } );
@@ -94,10 +84,8 @@ sub test_bitly_link_clicks($)
 
 }
 
-sub test_fetch_stats_for_url($)
+sub test_fetch_stats_for_url()
 {
-    my $api_endpoint = shift;
-
     MediaWords::Test::DB::test_on_test_database(
         sub {
             my ( $db ) = @_;
@@ -108,7 +96,7 @@ sub test_fetch_stats_for_url($)
             my $test_start_timestamp = timelocal( 0, 0, 0, 1, 6, 2013 );
             my $test_end_timestamp   = timelocal( 0, 0, 0, 1, 11, 2013 );
 
-            my $bitly = MediaWords::Util::Bitly::API->new( $api_endpoint );
+            my $bitly = MediaWords::Util::Bitly::API->new();
             my $link_stats = $bitly->fetch_stats_for_url( $db, $test_url, $test_start_timestamp, $test_end_timestamp );
 
             ok( keys( %{ $link_stats } ) > 0 );

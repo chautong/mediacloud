@@ -191,6 +191,9 @@ bitly:
     ### Enable Bit.ly processing
     enabled: false
 
+    ### API endpoint
+    api_endpoint: "https://api-ssl.bitly.com/"
+
     ### (Generic) Access Token
     ### Get one at: https://bitly.com/a/oauth_apps
     access_token: ""

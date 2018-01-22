@@ -26,26 +26,16 @@ use DateTime::Duration;
 use Readonly;
 use Time::Local;
 
-# Default API endpoint
-Readonly my $BITLY_DEFAULT_API_ENDPOINT => 'https://api-ssl.bitly.com/';
-
 # Error message printed when Bit.ly rate limit is exceeded; used for naive
 # exception handling, see error_is_rate_limit_exceeded()
 Readonly my $BITLY_ERROR_LIMIT_EXCEEDED => 'Bit.ly rate limit exceeded. Please wait for a bit and try again.';
 
-sub new($;$)
+sub new($)
 {
-    my ( $class, $bitly_api_endpoint ) = @_;
+    my ( $class ) = @_;
 
     my $self = {};
     bless $self, $class;
-
-    unless ( $bitly_api_endpoint )
-    {
-        $bitly_api_endpoint = $BITLY_DEFAULT_API_ENDPOINT;
-    }
-
-    $self->{ _api_endpoint } = $bitly_api_endpoint;
 
     unless ( MediaWords::Util::Bitly::bitly_processing_is_enabled() )
     {
@@ -54,10 +44,17 @@ sub new($;$)
 
     my $config = MediaWords::Util::Config::get_config();
 
+    my $api_endpoint = $config->{ bitly }->{ api_endpoint } . '';
+    unless ( $api_endpoint )
+    {
+        fatal_error( "Bit.ly API endpoint is not set." );
+    }
+    $self->{ _api_endpoint } = $api_endpoint;
+
     my $access_token = $config->{ bitly }->{ access_token } . '';
     unless ( $access_token )
     {
-        fatal_error( "Unable to determine Bit.ly access token." );
+        fatal_error( "Bit.ly API access token is not set." );
     }
     $self->{ _access_token } = $access_token;
 
