@@ -237,9 +237,9 @@ sub live_backend_test_is_enabled()
     }
 }
 
-sub test_subroutines_on_all_backends($)
+sub test_on_all_backends($)
 {
-    my $test_subroutines = shift;
+    my $test_subroutine = shift;
 
     my $config     = MediaWords::Util::Config::get_config();
     my $new_config = python_deep_copy( $config );
@@ -287,10 +287,7 @@ sub test_subroutines_on_all_backends($)
         $new_config->{ bitly }->{ access_token } = $backend->{ 'access_token' };
         MediaWords::Util::Config::set_config( $new_config );
 
-        for my $subroutine ( @{ $test_subroutines } )
-        {
-            $subroutine->();
-        }
+        $test_subroutine->();
     }
 
     # Reset configuration
