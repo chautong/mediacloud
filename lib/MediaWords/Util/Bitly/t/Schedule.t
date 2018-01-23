@@ -5,7 +5,7 @@ use Modern::Perl "2015";
 use MediaWords::CommonLibs;
 
 use Test::NoWarnings;
-use Test::More tests => 8;
+use Test::More tests => 11;
 
 use MediaWords::Test::Bitly;
 use MediaWords::Test::DB;
@@ -23,6 +23,52 @@ sub test_story_timestamp_lower_bound()
 sub test_story_timestamp_upper_bound()
 {
     is( MediaWords::Util::Bitly::Schedule::_story_timestamp_upper_bound(), DateTime->now()->epoch );
+}
+
+sub test_story_start_timestamp()
+{
+    my $day = 15;
+
+    is(
+        MediaWords::Util::Bitly::Schedule::_story_start_timestamp(
+            DateTime->new(
+                year  => 2012,
+                month => 10,
+                day   => $day,
+                hour  => 8
+            )->epoch
+        ),
+        DateTime->new(
+            year  => 2012,
+            month => 10,
+            day   => $day - 2,
+            hour  => 8
+        )->epoch
+    );
+}
+
+sub test_story_end_timestamp()
+{
+    is(
+        MediaWords::Util::Bitly::Schedule::_story_end_timestamp(
+            DateTime->new(
+                year  => 2012,
+                month => 10,
+                day   => 15,
+                hour  => 8
+            )->epoch
+        ),
+        DateTime->new(
+            year  => 2012,
+            month => 11,
+            day   => 14,
+            hour  => 8
+        )->epoch
+    );
+
+    # Too far off in the future
+    my $now = time();
+    is( MediaWords::Util::Bitly::Schedule::_story_end_timestamp( $now + 2000 ), $now );
 }
 
 sub test_skip_processing_for_story_feed($)
@@ -85,6 +131,8 @@ sub main()
 {
     test_story_timestamp_lower_bound();
     test_story_timestamp_upper_bound();
+    test_story_start_timestamp();
+    test_story_end_timestamp();
 
     MediaWords::Test::DB::test_on_test_database(
         sub {
