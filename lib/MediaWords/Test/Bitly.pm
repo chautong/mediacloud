@@ -237,7 +237,8 @@ sub live_backend_test_is_enabled()
     }
 }
 
-sub test_on_all_backends($)
+# Enable Bit.ly processing in configuration, run subroutine parameter, reset the configuration
+sub test_with_bitly_enabled($)
 {
     my $test_subroutine = shift;
 
@@ -246,55 +247,80 @@ sub test_on_all_backends($)
 
     # Enable Bit.ly for this test only
     $new_config->{ bitly } = {};
-    my $old_bitly_enabled      = $config->{ bitly }->{ enabled };
-    my $old_bitly_api_endpoint = $config->{ bitly }->{ api_endpoint };
-    my $old_bitly_access_token = $config->{ bitly }->{ access_token };
+    my $old_bitly_enabled = $config->{ bitly }->{ enabled };
     $new_config->{ bitly }->{ enabled } = 1;
+    MediaWords::Util::Config::set_config( $new_config );
 
-    my $mock_port         = MediaWords::Util::Network::random_unused_port();
-    my $mock_api_endpoint = "http://localhost:$mock_port/";
-    my $mock_pages        = _mock_api_endpoint_pages();
-    my $mock_hs           = MediaWords::Test::HTTP::HashServer->new( $mock_port, $mock_pages );
-    $mock_hs->start();
-
-    my $test_backends = [];
-
-    # Mock API endpoint
-    push(
-        @{ $test_backends },
-        {
-            'api_endpoint' => $mock_api_endpoint,
-            'access_token' => '01234567890abcdef',
-        }
-    );
-
-    if ( live_backend_test_is_enabled() )
-    {
-        # Live API endpoint
-        push(
-            @{ $test_backends },
-            {
-                'api_endpoint' => $config->{ bitly }->{ api_endpoint },        # Will be set to live API's endpoint
-                'access_token' => $ENV{ $ENV_BITLY_TEST_ACCESS_TOKEN . '' },
-            }
-        );
-
-    }
-
-    for my $backend ( @{ $test_backends } )
-    {
-        $new_config->{ bitly }->{ api_endpoint } = $backend->{ 'api_endpoint' };
-        $new_config->{ bitly }->{ access_token } = $backend->{ 'access_token' };
-        MediaWords::Util::Config::set_config( $new_config );
-
-        $test_subroutine->();
-    }
+    $test_subroutine->();
 
     # Reset configuration
-    $new_config->{ bitly }->{ enabled }      = $old_bitly_enabled;
-    $new_config->{ bitly }->{ api_endpoint } = $old_bitly_api_endpoint;
-    $new_config->{ bitly }->{ access_token } = $old_bitly_access_token;
+    $new_config->{ bitly }->{ enabled } = $old_bitly_enabled;
     MediaWords::Util::Config::set_config( $new_config );
+}
+
+# Run subroutine parameter with both (mock and live) Bit.ly APIs enabled
+sub test_on_all_backends($)
+{
+    my $test_subroutine = shift;
+
+    test_with_bitly_enabled(
+        sub {
+
+            my $config     = MediaWords::Util::Config::get_config();
+            my $new_config = python_deep_copy( $config );
+
+            $new_config->{ bitly } = {};
+            my $old_bitly_api_endpoint = $config->{ bitly }->{ api_endpoint };
+            my $old_bitly_access_token = $config->{ bitly }->{ access_token };
+            $new_config->{ bitly }->{ enabled } = 1;
+
+            my $mock_port         = MediaWords::Util::Network::random_unused_port();
+            my $mock_api_endpoint = "http://localhost:$mock_port/";
+            my $mock_pages        = _mock_api_endpoint_pages();
+            my $mock_hs           = MediaWords::Test::HTTP::HashServer->new( $mock_port, $mock_pages );
+            $mock_hs->start();
+
+            my $test_backends = [];
+
+            # Mock API endpoint
+            push(
+                @{ $test_backends },
+                {
+                    'api_endpoint' => $mock_api_endpoint,
+                    'access_token' => '01234567890abcdef',
+                }
+            );
+
+            if ( live_backend_test_is_enabled() )
+            {
+                # Live API endpoint
+                push(
+                    @{ $test_backends },
+                    {
+                        # Will be set to live API's endpoint
+                        'api_endpoint' => $config->{ bitly }->{ api_endpoint },
+
+                        'access_token' => $ENV{ $ENV_BITLY_TEST_ACCESS_TOKEN . '' },
+                    }
+                );
+
+            }
+
+            for my $backend ( @{ $test_backends } )
+            {
+                $new_config->{ bitly }->{ api_endpoint } = $backend->{ 'api_endpoint' };
+                $new_config->{ bitly }->{ access_token } = $backend->{ 'access_token' };
+                MediaWords::Util::Config::set_config( $new_config );
+
+                $test_subroutine->();
+            }
+
+            # Reset configuration
+            $new_config->{ bitly }->{ api_endpoint } = $old_bitly_api_endpoint;
+            $new_config->{ bitly }->{ access_token } = $old_bitly_access_token;
+            MediaWords::Util::Config::set_config( $new_config );
+        }
+    );
 }
 
 1;

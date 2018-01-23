@@ -395,7 +395,7 @@ sub main()
 {
     if ( MediaWords::Test::Bitly::live_backend_test_is_enabled() )
     {
-        plan tests => 30;
+        plan tests => 22;
     }
     else
     {
@@ -419,9 +419,7 @@ sub main()
         }
     );
 
-    # No point in having multiple Bit.ly backends for this test as it doesn't
-    # make any API calls, we just want the Bit.ly client enabled
-    MediaWords::Test::Bitly::test_on_all_backends(
+    MediaWords::Test::Bitly::test_with_bitly_enabled(
         sub {
 
             # Initialize a fresh database for every Bit.ly backend
