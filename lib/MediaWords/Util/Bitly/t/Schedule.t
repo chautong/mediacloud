@@ -5,7 +5,7 @@ use Modern::Perl "2015";
 use MediaWords::CommonLibs;
 
 use Test::NoWarnings;
-use Test::More tests => 11;
+use Test::More tests => 14;
 
 use MediaWords::Test::Bitly;
 use MediaWords::Test::DB;
@@ -71,6 +71,32 @@ sub test_story_end_timestamp()
     is( MediaWords::Util::Bitly::Schedule::_story_end_timestamp( $now + 2000 ), $now );
 }
 
+sub test_story_processing_is_enabled()
+{
+    my $config     = MediaWords::Util::Config::get_config();
+    my $new_config = python_deep_copy( $config );
+    $new_config->{ bitly } = {};
+    my $old_bitly_enabled = $config->{ bitly }->{ enabled };
+
+    $new_config->{ bitly }->{ enabled } = 1;
+    $new_config->{ bitly }->{ story_processing }->{ enabled } = 1;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( MediaWords::Util::Bitly::Schedule::story_processing_is_enabled() );
+
+    $new_config->{ bitly }->{ story_processing }->{ enabled } = 0;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( !MediaWords::Util::Bitly::Schedule::story_processing_is_enabled() );
+
+    $new_config->{ bitly }->{ enabled } = 0;
+    $new_config->{ bitly }->{ story_processing }->{ enabled } = 1;
+    MediaWords::Util::Config::set_config( $new_config );
+    ok( !MediaWords::Util::Bitly::Schedule::story_processing_is_enabled() );
+
+    # Reset configuration
+    $new_config->{ bitly }->{ enabled } = $old_bitly_enabled;
+    MediaWords::Util::Config::set_config( $new_config );
+}
+
 sub test_skip_processing_for_story_feed($)
 {
     my $db = shift;
@@ -133,6 +159,7 @@ sub main()
     test_story_timestamp_upper_bound();
     test_story_start_timestamp();
     test_story_end_timestamp();
+    test_story_processing_is_enabled();
 
     MediaWords::Test::DB::test_on_test_database(
         sub {
