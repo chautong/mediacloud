@@ -246,7 +246,6 @@ sub test_with_bitly_enabled($)
     my $new_config = python_deep_copy( $config );
 
     # Enable Bit.ly for this test only
-    $new_config->{ bitly } = {};
     my $old_bitly_enabled = $config->{ bitly }->{ enabled };
     $new_config->{ bitly }->{ enabled } = 1;
     MediaWords::Util::Config::set_config( $new_config );
@@ -269,7 +268,6 @@ sub test_on_all_backends($)
             my $config     = MediaWords::Util::Config::get_config();
             my $new_config = python_deep_copy( $config );
 
-            $new_config->{ bitly } = {};
             my $old_bitly_api_endpoint = $config->{ bitly }->{ api_endpoint };
             my $old_bitly_access_token = $config->{ bitly }->{ access_token };
             $new_config->{ bitly }->{ enabled } = 1;
