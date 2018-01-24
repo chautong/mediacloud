@@ -152,7 +152,10 @@ sub test_aggregate_story_stats()
         };
 
         my $aggregated_stats = MediaWords::Util::Bitly::aggregate_story_stats( $stories_id, undef, $stats );
+
+        is( $aggregated_stats->{ stories_id }, $stories_id );
         cmp_deeply( $aggregated_stats->{ dates_and_clicks }, $expected_dates_and_clicks );
+        is( $aggregated_stats->total_click_count(), 222002 );
     }
 }
 
@@ -395,11 +398,11 @@ sub main()
 {
     if ( MediaWords::Test::Bitly::live_backend_test_is_enabled() )
     {
-        plan tests => 22;
+        plan tests => 24;
     }
     else
     {
-        plan tests => 20;
+        plan tests => 22;
     }
 
     my $builder = Test::More->builder;
