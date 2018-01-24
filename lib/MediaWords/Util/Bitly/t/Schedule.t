@@ -180,6 +180,8 @@ sub test_add_to_processing_schedule($)
     {
         my $scheduled_stories = $db->query(
             <<SQL,
+            SET TIMEZONE = 'GMT';
+
             SELECT stories_id,
                    EXTRACT(EPOCH FROM fetch_at)::int AS fetch_at_timestamp
             FROM bitly_processing_schedule
@@ -196,6 +198,8 @@ SQL
     {
         my $scheduled_stories = $db->query(
             <<SQL,
+            SET TIMEZONE = 'GMT';
+
             SELECT stories_id,
                    EXTRACT(EPOCH FROM fetch_at)::int AS fetch_at_timestamp
             FROM bitly_processing_schedule
@@ -208,30 +212,20 @@ SQL
         is(
             $scheduled_stories->[ 0 ]->{ fetch_at_timestamp },
             DateTime->new(
-                year  => 2012,    #
-                month => 10,      #
-                day   => 15,      #
-
-                # FIXME not quite sure why we have to add 8 hours; probably
-                # has something to do with the fact that publish_date is stored
-                # in America/New_York timezone, but not necessarily
-                hour => 8 + 8,    #
-
+                year      => 2012,        #
+                month     => 10,          #
+                day       => 15,          #
+                hour      => 8,           #
                 time_zone => $timezone    #
             )->epoch + $processing_delay_1
         );
         is(
             $scheduled_stories->[ 1 ]->{ fetch_at_timestamp },
             DateTime->new(
-                year  => 2012,            #
-                month => 10,              #
-                day   => 15,              #
-
-                # FIXME not quite sure why we have to add 8 hours; probably
-                # has something to do with the fact that publish_date is stored
-                # in America/New_York timezone, but not necessarily
-                hour => 8 + 8,    #
-
+                year      => 2012,        #
+                month     => 10,          #
+                day       => 15,          #
+                hour      => 8,           #
                 time_zone => $timezone    #
             )->epoch + $processing_delay_2
         );
