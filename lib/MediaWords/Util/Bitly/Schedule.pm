@@ -168,10 +168,12 @@ EOF
 # Add a chunk of due stories for which we should fetch Bit.ly statistics to job
 # broker's queue
 #
+# Optionally, provide a function to use for adding jobs to queue.
+#
 # Returns: a number of stories that have been added to job broker's queue
-sub process_due_schedule_chunk($;$)
+sub process_due_schedule_chunk($;$$)
 {
-    my ( $db, $chunk_size ) = @_;
+    my ( $db, $chunk_size, $add_to_queue_function ) = @_;
 
     unless ( story_processing_is_enabled() )
     {
@@ -179,6 +181,7 @@ sub process_due_schedule_chunk($;$)
     }
 
     $chunk_size ||= 1000;
+    $add_to_queue_function ||= \&{ MediaWords::Job::Bitly::FetchStoryStats->add_to_queue };
 
     INFO "Fetching chunk of up to $chunk_size stories to add to Bit.ly fetch queue...";
 
@@ -220,7 +223,7 @@ EOF
         my $end_timestamp   = _story_end_timestamp( $story_timestamp );
 
         INFO "Adding story $stories_id to Bit.ly fetch queue...";
-        MediaWords::Job::Bitly::FetchStoryStats->add_to_queue(
+        $add_to_queue_function->(
             {
                 stories_id      => $stories_id,
                 start_timestamp => $start_timestamp,
