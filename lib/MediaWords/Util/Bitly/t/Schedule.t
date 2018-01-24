@@ -5,7 +5,7 @@ use Modern::Perl "2015";
 use MediaWords::CommonLibs;
 
 use Test::NoWarnings;
-use Test::More tests => 18;
+use Test::More tests => 26;
 
 use MediaWords::Test::Bitly;
 use MediaWords::Test::DB;
@@ -242,6 +242,104 @@ SQL
     MediaWords::Util::Config::set_config( $new_config );
 }
 
+sub test_process_due_schedule_chunk($)
+{
+    my $db = shift;
+
+    my $timezone = DateTime::TimeZone->new( name => 'local' );
+
+    my $medium = MediaWords::Test::DB::create_test_medium( $db, 'test' );
+    my $feed = MediaWords::Test::DB::create_test_feed( $db, 'feed', $medium );
+    my $story = MediaWords::Test::DB::create_test_story( $db, 'story', $feed );
+
+    my $stories_id = $story->{ stories_id };
+
+    $story = $db->update_by_id( 'stories', $stories_id, { 'publish_date' => '2012-10-15 08:00:00' } );
+
+    my $fetch_at_timestamp_1 = DateTime->new(
+        year      => 2012,        #
+        month     => 10,          #
+        day       => 13,          #
+        hour      => 8,           #
+        time_zone => $timezone    #
+    )->epoch;
+    my $fetch_at_timestamp_2 = DateTime->new(
+        year      => 2012,        #
+        month     => 10,          #
+        day       => 3,           #
+        hour      => 8,           #
+        time_zone => $timezone    #
+    )->epoch;
+
+    $db->query(
+        <<SQL,
+        INSERT INTO bitly_processing_schedule (stories_id, fetch_at)
+        VALUES (\$1, TO_TIMESTAMP(\$2)), (\$1, TO_TIMESTAMP(\$3))
+SQL
+        $stories_id, $fetch_at_timestamp_1, $fetch_at_timestamp_2
+    );
+
+    my $got_args;                 # to be set in _add_to_queue()
+
+    *_add_to_queue = sub {
+        my $args = shift;
+
+        ok( !defined $got_args, "Only one job is to be added to the queue for the story" );
+
+        $got_args = $args;
+    };
+
+    my $chunk_size            = undef;
+    my $add_to_queue_function = \&_add_to_queue;
+    my $stories_processed     = MediaWords::Util::Bitly::Schedule::process_due_schedule_chunk(
+        $db,                      #
+        $chunk_size,              #
+        $add_to_queue_function    #
+    );
+
+    is( $stories_processed, 1 );    # story added to the queue only once
+
+    ok( $got_args );
+    is( ref( $got_args ), ref( {} ) );
+    is( $got_args->{ stories_id }, $stories_id );
+
+    # Story's "publish_date" minus 2 days
+    is(
+        $got_args->{ start_timestamp },
+        DateTime->new(
+            year      => 2012,        #
+            month     => 10,          #
+            day       => 15,          #
+            hour      => 8,           #
+            time_zone => $timezone    #
+        )->epoch - ( 60 * 60 * 24 * 2 )
+    );
+
+    # Story's "publish_date" plus 30 days
+    is(
+        $got_args->{ end_timestamp },
+        DateTime->new(
+            year      => 2012,        #
+            month     => 10,          #
+            day       => 15,          #
+            hour      => 8,           #
+            time_zone => $timezone    #
+        )->epoch + ( 60 * 60 * 24 * 30 )
+    );
+
+    my $scheduled_stories = $db->query(
+        <<SQL,
+        SELECT stories_id,
+               EXTRACT(EPOCH FROM fetch_at)::int AS fetch_at_timestamp
+        FROM bitly_processing_schedule
+        WHERE stories_id = ?
+        ORDER BY fetch_at
+SQL
+        $stories_id
+    )->hashes;
+    is( scalar( @{ $scheduled_stories } ), 0 );
+}
+
 sub main()
 {
     test_story_timestamp_lower_bound();
@@ -279,6 +377,18 @@ sub main()
         }
     );
 
+    MediaWords::Test::Bitly::test_with_story_processing_enabled(
+        sub {
+
+            MediaWords::Test::DB::test_on_test_database(
+                sub {
+                    my ( $db ) = @_;
+
+                    test_process_due_schedule_chunk( $db );
+                }
+            );
+        }
+    );
 }
 
 main();
