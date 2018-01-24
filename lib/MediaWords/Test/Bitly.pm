@@ -257,6 +257,32 @@ sub test_with_bitly_enabled($)
     MediaWords::Util::Config::set_config( $new_config );
 }
 
+# Enable Bit.ly story processing in configuration, run subroutine parameter, reset the configuration
+sub test_with_story_processing_enabled($)
+{
+    my $test_subroutine = shift;
+
+    test_with_bitly_enabled(
+        sub {
+
+            my $config     = MediaWords::Util::Config::get_config();
+            my $new_config = python_deep_copy( $config );
+
+            # Enable Bit.ly for this test only
+            my $old_bitly_story_processing_enabled = $config->{ bitly }->{ story_processing }->{ enabled };
+            $new_config->{ bitly }->{ story_processing }->{ enabled } = 1;
+            MediaWords::Util::Config::set_config( $new_config );
+
+            $test_subroutine->();
+
+            # Reset configuration
+            $new_config->{ bitly }->{ story_processing }->{ enabled } = $old_bitly_story_processing_enabled;
+            MediaWords::Util::Config::set_config( $new_config );
+
+        }
+    );
+}
+
 # Run subroutine parameter with both (mock and live) Bit.ly APIs enabled
 sub test_on_all_backends($)
 {
