@@ -5,7 +5,7 @@ use Modern::Perl "2015";
 use MediaWords::CommonLibs;
 
 use Test::NoWarnings;
-use Test::More tests => 14;
+use Test::More tests => 18;
 
 use MediaWords::Test::Bitly;
 use MediaWords::Test::DB;
@@ -153,6 +153,95 @@ sub test_story_timestamp($)
         DateTime->new( year => 2011, month => 10, day => 15, hour => 8, time_zone => $timezone )->epoch );
 }
 
+sub test_add_to_processing_schedule($)
+{
+    my $db = shift;
+
+    my $timezone = DateTime::TimeZone->new( name => 'local' );
+
+    # By how many seconds to delay the story processing with Bit.ly
+    my $processing_delay_1 = 60 * 60 * 24 * 2;
+    my $processing_delay_2 = 60 * 60 * 24 * 20;
+
+    my $config                              = MediaWords::Util::Config::get_config();
+    my $new_config                          = python_deep_copy( $config );
+    my $old_bitly_story_processing_schedule = $config->{ bitly }->{ story_processing }->{ schedule };
+    $new_config->{ bitly }->{ story_processing }->{ schedule } = [ $processing_delay_1, $processing_delay_2, ];
+    MediaWords::Util::Config::set_config( $new_config );
+
+    my $medium = MediaWords::Test::DB::create_test_medium( $db, 'test' );
+    my $feed = MediaWords::Test::DB::create_test_feed( $db, 'feed', $medium );
+    my $story = MediaWords::Test::DB::create_test_story( $db, 'story', $feed );
+
+    my $stories_id = $story->{ stories_id };
+
+    $story = $db->update_by_id( 'stories', $stories_id, { 'publish_date' => '2012-10-15 08:00:00' } );
+
+    {
+        my $scheduled_stories = $db->query(
+            <<SQL,
+            SELECT stories_id,
+                   EXTRACT(EPOCH FROM fetch_at)::int AS fetch_at_timestamp
+            FROM bitly_processing_schedule
+            WHERE stories_id = ?
+            ORDER BY fetch_at
+SQL
+            $stories_id
+        )->hashes;
+        is( scalar( @{ $scheduled_stories } ), 0 );
+    }
+
+    MediaWords::Util::Bitly::Schedule::add_to_processing_schedule( $db, $stories_id );
+
+    {
+        my $scheduled_stories = $db->query(
+            <<SQL,
+            SELECT stories_id,
+                   EXTRACT(EPOCH FROM fetch_at)::int AS fetch_at_timestamp
+            FROM bitly_processing_schedule
+            WHERE stories_id = ?
+            ORDER BY fetch_at
+SQL
+            $stories_id
+        )->hashes;
+        is( scalar( @{ $scheduled_stories } ), 2 );
+        is(
+            $scheduled_stories->[ 0 ]->{ fetch_at_timestamp },
+            DateTime->new(
+                year  => 2012,    #
+                month => 10,      #
+                day   => 15,      #
+
+                # FIXME not quite sure why we have to add 8 hours; probably
+                # has something to do with the fact that publish_date is stored
+                # in America/New_York timezone, but not necessarily
+                hour => 8 + 8,    #
+
+                time_zone => $timezone    #
+            )->epoch + $processing_delay_1
+        );
+        is(
+            $scheduled_stories->[ 1 ]->{ fetch_at_timestamp },
+            DateTime->new(
+                year  => 2012,            #
+                month => 10,              #
+                day   => 15,              #
+
+                # FIXME not quite sure why we have to add 8 hours; probably
+                # has something to do with the fact that publish_date is stored
+                # in America/New_York timezone, but not necessarily
+                hour => 8 + 8,    #
+
+                time_zone => $timezone    #
+            )->epoch + $processing_delay_2
+        );
+    }
+
+    # Reset configuration
+    $new_config->{ bitly }->{ story_processing }->{ schedule } = $old_bitly_story_processing_schedule;
+    MediaWords::Util::Config::set_config( $new_config );
+}
+
 sub main()
 {
     test_story_timestamp_lower_bound();
@@ -176,6 +265,20 @@ sub main()
             test_story_timestamp( $db );
         }
     );
+
+    MediaWords::Test::Bitly::test_with_story_processing_enabled(
+        sub {
+
+            MediaWords::Test::DB::test_on_test_database(
+                sub {
+                    my ( $db ) = @_;
+
+                    test_add_to_processing_schedule( $db );
+                }
+            );
+        }
+    );
+
 }
 
 main();
